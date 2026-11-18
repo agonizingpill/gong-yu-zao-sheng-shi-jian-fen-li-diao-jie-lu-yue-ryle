@@ -1,6 +1,6 @@
 from datetime import timedelta
 from sqlalchemy import select
-from .models import Remedy,Recheck,NoiseEvent,Breach,Closure
+from .models import Remedy,Recheck,NoiseEvent,Breach,Closure,Judgment
 from .common import require,lock_agreement,get,record,dump,now,within_window
 
 def completed(db,a):
@@ -37,5 +37,7 @@ def close(db,user,id,note):
     case,a=lock_agreement(db,id);require(a.state=='observing','协议须处于观察期')
     require(now(db)>=a.observation_until,'观察期尚未结束，请到期后复核结案')
     require(not db.scalar(select(Breach).where(Breach.agreement_id==id,Breach.resolved==False)),'复发未解决，不能结案');completed(db,a)
+    # 与登记并发时靠同卷行锁序列化；已受理但未判定的事件必须挡住结案。
+    require(not db.scalar(select(Judgment).where(Judgment.agreement_id==id,Judgment.verdict=='pending')),'存在已受理但未判定的事件，须先由主管复核是否复发')
     row=Closure(complaint_id=case.id,agreement_id=id,note=note,closed_at=now(db));db.add(row);a.state='fulfilled';case.status='closed'
     record(db,user,'complaint.close',case.id,note);db.commit();return dump(row)

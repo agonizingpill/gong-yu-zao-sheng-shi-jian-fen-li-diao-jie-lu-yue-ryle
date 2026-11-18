@@ -70,6 +70,8 @@ class Agreement(Base):
     quiet_to:Mapped[int]=mapped_column(Integer)
     threshold:Mapped[float]=mapped_column(Float)
     observation_days:Mapped[int]=mapped_column(Integer)
+    # total=原约定按总能量判定复发；equipment=新签设备协议按分离出的设备能量判定。
+    energy_basis:Mapped[str]=mapped_column(String(20),default='total',server_default='total')
     state:Mapped[str]=mapped_column(String(20),default='draft')
     activated_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
     observation_from:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
@@ -102,8 +104,25 @@ class Breach(Base):
     id:Mapped[int]=mapped_column(primary_key=True)
     agreement_id:Mapped[int]=mapped_column(ForeignKey('agreements.id'))
     event_id:Mapped[int]=mapped_column(ForeignKey('noise_events.id'),unique=True)
+    judgment_id:Mapped[int|None]=mapped_column(ForeignKey('judgments.id'),nullable=True)
     resolved:Mapped[bool]=mapped_column(Boolean,default=False)
     resolution:Mapped[str]=mapped_column(String(300),default='')
+class Judgment(Base):
+    # 每次复发判定的留痕：结论、数值与依据；pending 表示已受理待主管复核。
+    __tablename__='judgments'
+    __table_args__=(UniqueConstraint('agreement_id','event_id',name='one_judgment_per_event'),)
+    id:Mapped[int]=mapped_column(primary_key=True)
+    agreement_id:Mapped[int]=mapped_column(ForeignKey('agreements.id'))
+    event_id:Mapped[int]=mapped_column(ForeignKey('noise_events.id'))
+    mode:Mapped[str]=mapped_column(String(20))
+    total_energy:Mapped[float]=mapped_column(Float)
+    equipment_energy:Mapped[float|None]=mapped_column(Float,nullable=True)
+    threshold:Mapped[float]=mapped_column(Float)
+    verdict:Mapped[str]=mapped_column(String(20),default='pending')
+    basis:Mapped[str]=mapped_column(Text)
+    reviewer:Mapped[str]=mapped_column(String(60),default='')
+    decided_at:Mapped[datetime|None]=mapped_column(DateTime,nullable=True)
+    created_at:Mapped[datetime]=mapped_column(default=datetime.utcnow)
 class Closure(Base):
     __tablename__='closures'
     id:Mapped[int]=mapped_column(primary_key=True)

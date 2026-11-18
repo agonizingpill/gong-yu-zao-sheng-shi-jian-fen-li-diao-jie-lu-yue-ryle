@@ -6,6 +6,7 @@ from .database import Session
 from .models import Separation,NoiseEvent
 from .common import lock_case
 from .separation import calculate
+from .judgment_service import rejudge_pending
 q=redis.Redis.from_url(os.getenv('REDIS_URL','redis://redis:6379/0'),decode_responses=True)
 while True:
     Path('/tmp/worker-heartbeat').touch()
@@ -28,7 +29,10 @@ while True:
         with Session() as db:
             job=db.get(Separation,jobid);case=lock_case(db,job.complaint_id)
             if not case.consent:raise ValueError('授权撤回，分离结果不发布')
-            job.result=result;job.state='done';db.commit()
+            job.result=result;job.state='done'
+            # 新分离覆盖的事件若曾"分不清"设备能量，按新结果补判复发。
+            rejudge_pending(db,case)
+            db.commit()
         Path('/artifacts').mkdir(exist_ok=True)
         Path(f'/artifacts/separation-{jobid}.json').write_text(json.dumps(result,ensure_ascii=False))
     except Exception as e:

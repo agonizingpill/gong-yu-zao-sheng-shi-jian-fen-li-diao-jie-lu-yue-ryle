@@ -2,11 +2,11 @@ from fastapi import APIRouter,Depends
 from sqlalchemy import select
 from .database import session
 from .auth import current,operator,supervisor
-from .models import Agreement,Signature,Remedy,Recheck,Breach,Closure
+from .models import Agreement,Signature,Remedy,Recheck,Breach,Closure,Judgment
 from .common import dump,get
-from .agreement_schemas import AgreementInput,SignatureInput,RemedyInput,ReceiptInput,RecheckInput,ResolutionInput
+from .agreement_schemas import AgreementInput,SignatureInput,RemedyInput,ReceiptInput,RecheckInput,ResolutionInput,DecisionInput
 from .case_schemas import NoteInput
-from . import agreement_service as service,resolution_service as resolution
+from . import agreement_service as service,resolution_service as resolution,judgment_service as judgment
 router=APIRouter()
 @router.get('/complaints/{id}/agreements')
 def agreements(id:int,db=Depends(session),u=Depends(current)):
@@ -32,6 +32,10 @@ def checks(id:int,db=Depends(session),u=Depends(current)):return [dump(r) for r 
 def check(id:int,data:RecheckInput,db=Depends(session),u=Depends(operator)):return resolution.recheck(db,u,id,data)
 @router.get('/agreements/{id}/breaches')
 def breaches(id:int,db=Depends(session),u=Depends(current)):return [dump(r) for r in db.scalars(select(Breach).where(Breach.agreement_id==id))]
+@router.get('/agreements/{id}/judgments')
+def judgments(id:int,db=Depends(session),u=Depends(current)):return [dump(r) for r in db.scalars(select(Judgment).where(Judgment.agreement_id==id).order_by(Judgment.id))]
+@router.post('/judgments/{id}/decide')
+def decide(id:int,data:DecisionInput,db=Depends(session),u=Depends(supervisor)):return judgment.decide(db,u,id,data)
 @router.post('/breaches/{id}/resolve')
 def resolve(id:int,data:ResolutionInput,db=Depends(session),u=Depends(supervisor)):return resolution.resolve_breach(db,u,id,data)
 @router.post('/agreements/{id}/observe')

@@ -1,4 +1,5 @@
 from pydantic import BaseModel,Field,model_validator
+from typing import Literal
 class AgreementInput(BaseModel):
     attribution_id:int=Field(gt=0)
     party_a:str=Field(min_length=2,max_length=40)
@@ -26,3 +27,6 @@ class RecheckInput(BaseModel):
     note:str=Field(min_length=6,max_length=300)
 class ResolutionInput(BaseModel):
     resolution:str=Field(min_length=10,max_length=300)
+class DecisionInput(BaseModel):
+    verdict:Literal['breach','clear']
+    note:str=Field(min_length=6,max_length=300)

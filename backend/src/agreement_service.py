@@ -7,7 +7,9 @@ def create_agreement(db,user,caseid,data):
     attr=get(db,Attribution,data.attribution_id)
     require(attr.complaint_id==caseid and attr.source!='undetermined','归因须属于本卷且来源已核实')
     require(not db.scalar(select(Agreement).where(Agreement.complaint_id==caseid,Agreement.state.notin_(['cancelled','fulfilled']))),'本卷已有在途协议')
-    row=Agreement(complaint_id=caseid,**data.model_dump());db.add(row);db.flush();record(db,user,'agreement.draft',row.id,caseid);db.commit();return dump(row)
+    # 新签的设备协议按分离出的设备能量判超标；其他归因及既有协议仍按总能量原约定。
+    basis='equipment' if attr.source=='equipment' else 'total'
+    row=Agreement(complaint_id=caseid,energy_basis=basis,**data.model_dump());db.add(row);db.flush();record(db,user,'agreement.draft',row.id,f'{caseid};energy_basis={basis}');db.commit();return dump(row)
 def sign(db,user,id,data):
     case,a=lock_agreement(db,id);require(a.state=='draft','只有草案可以登记签字')
     require(data.party in (a.party_a,a.party_b),'签字人必须为本协议参与方')
